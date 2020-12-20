@@ -1,0 +1,203 @@
+---
+title: "Predection"
+author: "Mohamed"
+date: "19/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+## Introduction    
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.  
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).  
+Class A corresponds to the specified execution of the exercise, while the other 4 classes correspond to common mistakes. Participants were supervised by an experienced weight lifter to make sure the execution complied to the manner they were supposed to simulate. The exercises were performed by six male participants aged between 20-28 years, with little weight lifting experience. It was made sure that all participants could easily simulate the mistakes in a safe and controlled manner by using a relatively light dumbbell (1.25kg).  
+My goal here is to predict the *"class"* with the help of other predictors. This project is a part of Coursera Practical Machine Learning Week 4 - Peer-graded Assignment: Prediction Assignment Writeup.  
+
+```{r,warning=FALSE,message=FALSE,include=FALSE,echo=FALSE}
+# loading libraries
+# if the below libraries are not installed in your system, please install them
+
+
+install.packages("caret")
+install.packages("rpart")
+install.packages("rpart.plot")
+install.packages("RGtk2")
+install.packages("rattle")
+install.packages("e1071")
+install.packages("randomForest") 
+install.packages("gbm") 
+
+library(rpart)
+library(rpart.plot)
+library(RColorBrewer)
+library(RGtk2)
+library(rattle)
+library(randomForest)
+library(gbm)
+library(caret)
+
+
+```
+
+
+## Data description
+
+
+- exactly according to the specification (Class A)
+- throwing the elbows to the front (Class B)
+- lifting the dumbbell only halfway (Class C)
+- lowering the dumbbell only halfway (Class D)
+- throwing the hips to the front (Class E)
+
+training_data <- read.csv("pml-training.csv")
+testing_data <- read.csv("pml-testing.csv")
+
+## Data loading
+
+The initial configuration consists of loading some required packages and initializing the data sets
+
+```{r configuration, echo=TRUE, results='hide'}
+
+
+dim(training_data)
+dim(testing_data)
+
+non_zero_var <- nearZeroVar(training_data)
+
+
+org_training_data <- training_data[,-non_zero_var]
+org_testing_data <- testing_data[,-non_zero_var]
+
+dim(org_training_data)
+dim(org_testing_data)
+
+na_val_col <- sapply(org_training_data, function(x) mean(is.na(x))) > 0.95
+
+org_training_data <- org_training_data[,na_val_col == FALSE]
+org_testing_data <- org_testing_data[,na_val_col == FALSE]
+
+dim(org_training_data)
+dim(org_testing_data)
+
+# final data for training
+
+org_training_data <- org_training_data[,8:59]
+org_testing_data <- org_testing_data[,8:59]
+
+dim(org_training_data)
+
+dim(org_testing_data)
+
+colnames(org_training_data)
+
+colnames(org_testing_data)
+```
+
+
+## Prediction models
+In this section a decision tree and random forest will be applied to the data.
+
+### Decision tree
+```{r decisiontree, echo=TRUE}
+
+inTrain <- createDataPartition(org_training_data$classe, p=0.6, list=FALSE)
+training <- org_training_data[inTrain,]
+testing <- org_training_data[-inTrain,]
+
+dim(training)
+
+dim(testing)
+
+# Fit model
+
+DT_modfit <- train(classe ~ ., data = training, method="rpart")
+
+DT_prediction <- predict(DT_modfit, testing,type = "class")
+
+# Plot result
+
+rpart.plot(DT_modfit$finalModel, roundint=FALSE)
+```
+
+
+### Random forest
+```{r randomforest, echo=TRUE}
+# Fit model
+
+RF_modfit <- train(classe ~ ., data = training, method = "rf", ntree = 100)
+
+# Perform prediction
+RF_prediction <- predict(RF_modfit, testing)
+
+```
+
+```{r randomforestcm, echo=TRUE}
+RF_pred_conf <- confusionMatrix(table(RF_prediction, testing$classe))
+
+RF_pred_conf
+
+plot(RF_pred_conf$table, col = RF_pred_conf$byClass, 
+     main = paste("Random Forest - Accuracy Level =",
+                  round(RF_pred_conf$overall['Accuracy'], 4)))
+```
+
+                  
+                  
+## Conclusion
+
+### Result
+
+The confusion matrices show, that the Random Forest algorithm performens better than decision trees. The accuracy for the Random Forest model was 0.995 (95% CI: (0.993, 0.997)) compared to 0.739 (95% CI: (0.727, 0.752)) for Decision Tree model. The random Forest model is choosen.
+
+### Expected out-of-sample error
+The expected out-of-sample error is estimated at 0.005, or 0.5%. The expected out-of-sample error is calculated as 1 - accuracy for predictions made against the cross-validation set. Our Test data set comprises 20 cases. With an accuracy above 99% on our cross-validation data, we can expect that very few, or none, of the test samples will be missclassified.
+
+## Submission
+In this section the files for the project submission are generated using the random forest algorithm on the testing data.
+
+```{r submission, echo=TRUE}
+# Perform prediction
+
+GBM_modfit <- train(classe ~ ., data = training, method = "gbm", verbose = FALSE)
+GBM_modfit$finalModel
+
+GBM_prediction <- predict(GBM_modfit, testing)
+
+GBM_pred_conf <- confusionMatrix(table(GBM_prediction, testing$classe))
+GBM_pred_conf
+
+plot(GBM_pred_conf$table, col = GBM_pred_conf$byClass, 
+     main = paste("Gradient Boosting - Accuracy Level =",
+                  round(GBM_pred_conf$overall['Accuracy'], 4)))
+
+RF_pred_conf$overall
+GBM_pred_conf$overall
+
+Final_RF_prediction <- predict(RF_modfit, org_testing_data )
+Final_RF_prediction
+
+```
